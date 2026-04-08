@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Investigation Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container-fluid px-4 mt-4">
+    
+    <!-- ===== NAVIGATION ===== -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0 text-dark"><i class="fas fa-shield-alt text-primary"></i> Admin Investigation Dashboard</h2>
+        <div>
+            <a href="/" class="btn btn-secondary"><i class="fas fa-home"></i> Back to Home</a>
+        </div>
+    </div>
+
+    <!-- PART 4 & 5: FRAUD INVESTIGATION CENTER STATS -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-dark shadow">
+                <div class="card-body text-center">
+                    <h6 class="card-title opacity-75 small">Total Jobs Scanned</h6>
+                    <h3 class="fw-bold mb-0">{{ total_scans }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger shadow">
+                <div class="card-body text-center">
+                    <h6 class="card-title opacity-75 small">Dangerous Jobs</h6>
+                    <!-- ===== DEBUG FIX ===== -->
+                    <h3 class="fw-bold mb-0">{{ dangerous_count|default(0) }}</h3>
+                    <!-- ===== END DEBUG FIX ===== -->
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-dark bg-warning shadow">
+                <div class="card-body text-center">
+                    <h6 class="card-title opacity-75 small">Suspicious Jobs</h6>
+                    <!-- ===== DEBUG FIX ===== -->
+                    <h3 class="fw-bold mb-0">{{ suspicious_count|default(0) }}</h3>
+                    <!-- ===== END DEBUG FIX ===== -->
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success shadow">
+                <div class="card-body text-center">
+                    <h6 class="card-title opacity-75 small">Safe Jobs</h6>
+                    <!-- ===== DEBUG FIX ===== -->
+                    <h3 class="fw-bold mb-0">{{ safe_count|default(0) }}</h3>
+                    <!-- ===== END DEBUG FIX ===== -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PART 5: REPEAT SCAM DETECTION -->
+    {% if high_risk_employers %}
+    <div class="alert alert-danger shadow-sm border-start border-5 border-danger mb-4">
+        <h5 class="alert-heading fw-bold"><i class="fas fa-biohazard"></i> High Risk Employers Detected!</h5>
+        <p class="mb-0">The following companies have been flagged as <strong>Dangerous</strong> more than 3 times:</p>
+        <div class="mt-2 text-dark">
+            {% for employer in high_risk_employers %}
+                <span class="badge bg-danger p-2 me-1">{{ employer }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- PART 6: SCAM ALERT PANEL (Dangerous Cases) -->
+    <div class="card shadow border-danger mb-4">
+        <div class="card-header bg-danger text-white fw-bold">
+            <i class="fas fa-bell"></i> Recent Scam Alerts (Dangerous Classified Only)
+        </div>
+        <div class="table-responsive p-3">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Job Title</th>
+                        <th>Company</th>
+                        <th>Trust Score</th>
+                        <th>Scan Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in recent_scam_alerts %}
+                    <tr class="table-danger">
+                        <td class="fw-bold">{{ alert.title }}</td>
+                        <td>{{ alert.company_name }}</td>
+                        <td><span class="badge bg-danger">{{ alert.trust_score }}%</span></td>
+                        <td class="small">{{ alert.scan_date.strftime('%Y-%m-%d %H:%M') if alert.scan_date else '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No dangerous scams detected recently.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== PART 2: VISUAL GRAPHS (PART 7: RISK VISUALIZATION) ===== -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow p-3 h-100">
+                <h6 class="border-bottom pb-2 fw-bold">Classification Distribution</h6>
+                <div style="height: 250px;">
+                    <canvas id="classificationChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow p-3 h-100">
+                <h6 class="border-bottom pb-2 fw-bold">Scam Keyword Detection</h6>
+                <div style="height: 250px;">
+                    <canvas id="keywordChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow p-3 h-100">
+                <h6 class="border-bottom pb-2 fw-bold">Domain Risk Profile</h6>
+                <div style="height: 250px;">
+                    <canvas id="domainRiskChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PART 3 & 4: RECENT SCANS TABLE ===== -->
+    <div class="card shadow p-4 mb-5">
+        <h5 class="border-bottom pb-3 mb-3 fw-bold">Investigation Logs (All Scans)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Company Name</th>
+                        <th>Job Title</th>
+                        <th>HR Email</th>
+                        <th>Website</th>
+                        <th>Trust Score</th>
+                        <th>Classification</th>
+                        <th>Impersonation</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr>
+                        <td class="fw-bold">
+                            {{ scan.company_name }}
+                            {% if scan.company_name in high_risk_employers %}
+                                <i class="fas fa-exclamation-circle text-danger ms-1" title="High Risk Employer"></i>
+                            {% endif %}
+                            <!-- ===== MODIFIED CODE ===== -->
+                            {% if scan.incomplete_company_info %}
+                                <br><span class="badge bg-warning text-dark mt-1">⚠ Incomplete Company Information</span>
+                            {% endif %}
+                            <!-- ===== END MODIFIED CODE ===== -->
+                        </td>
+                        <td>{{ scan.title }}</td>
+                        <td>{{ scan.email }}</td>
+                        <td class="small">
+                            <a href="/company/{{ scan.website }}" class="text-decoration-none">
+                                {{ scan.website or 'N/A' }}
+                            </a>
+                            <!-- CORRELATION DETECTION ADDITION -->
+                            {% if scan.website in repeated_suspicious_domains %}
+                                <i class="fas fa-exclamation-triangle text-warning ms-1" title="Repeatedly appearing in suspicious scans"></i>
+                            {% endif %}
+                        </td>
+                        <td><span class="{{ 'text-success' if scan.trust_score >= 80 else 'text-warning' if scan.trust_score >= 50 else 'text-danger' }} fw-bold">{{ scan.trust_score }}%</span></td>
+                        <td>
+                            {% if scan.classification == 'Safe' or 'Startup' in scan.classification %}
+                                <span class="badge bg-success">Safe</span>
+                            {% elif scan.classification == 'Suspicious' %}
+                                <span class="badge bg-warning text-dark">Suspicious</span>
+                            {% else %}
+                                <span class="badge bg-danger">Dangerous</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if scan.impersonation_flag == 'Yes' %}
+                                <span class="badge bg-danger">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">{{ scan.scan_date.strftime('%Y-%m-%d') if scan.scan_date else '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">No investigation records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== DEBUG FIX ===== -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Classification Pie Chart
+    new Chart(document.getElementById('classificationChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Safe', 'Suspicious', 'Dangerous'],
+            datasets: [{
+                data: [
+                    {{ safe_count|default(0) }},
+                    {{ suspicious_count|default(0) }},
+                    {{ dangerous_count|default(0) }}
+                ],
+                backgroundColor: ['#198754', '#ffc107', '#dc3545']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // 2. Keyword Stats Chart
+    new Chart(document.getElementById('keywordChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Post with Keywords', 'Clean Posts'],
+            datasets: [{
+                label: 'Volume',
+                data: [{{ keyword_count|default(0) }}, {{ clean_count|default(0) }}],
+                backgroundColor: ['#dc3545', '#198754']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // 3. Domain Risk Profile Chart
+    new Chart(document.getElementById('domainRiskChart'), {
+        type: 'pie',
+        data: {
+            labels: ['New Domains (<90d)', 'Established'],
+            datasets: [{
+                data: [{{ new_domain_count|default(0) }}, {{ old_domain_count|default(0) }}],
+                backgroundColor: ['#fd7e14', '#0d6efd']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+});
+</script>
+<!-- ===== END DEBUG FIX ===== -->
+
+</body>
+</html>

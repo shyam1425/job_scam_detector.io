@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Result - Fake Job Detector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Scripts for Gauge -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
+    
+    <style>
+        :root {
+            --safe-color: #198754;
+            --suspicious-color: #ffc107;
+            --dangerous-color: #dc3545;
+        }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .result-card { border-radius: 15px; border: none; }
+        .gauge-container { max-width: 300px; margin: 0 auto; }
+        .risk-badge { font-size: 1.1rem; padding: 0.5rem 1.5rem; border-radius: 50px; }
+        .indicator-tag { font-size: 0.85rem; border-radius: 50px; }
+        #gauge { height: 200px; }
+        .premium-shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        /* ===== MODIFIED CSS ===== */
+        .gauge-card-box {
+            border-radius: 20px;
+            background: #ffffff;
+            transition: all 0.3s ease;
+        }
+        .gauge-card-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1) !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-5 mb-5">
+
+    <div class="card result-card premium-shadow p-4 p-md-5">
+
+        <!-- 1. Report Header -->
+        <div class="text-center mb-5">
+            <h2 class="display-6 fw-bold text-dark">Analysis Result</h2>
+            <p class="text-muted">AI-powered Fraud Detection Report</p>
+        </div>
+
+        {% set alert_class = 'alert-success' %}
+        {% set text_color = 'text-success' %}
+        {% set btn_color = 'btn-success' %}
+        
+        {% if results.classification == 'Suspicious' %}
+            {% set alert_class = 'alert-warning' %}
+            {% set text_color = 'text-warning' %}
+            {% set btn_color = 'btn-warning' %}
+        {% elif results.classification == 'Dangerous' %}
+            {% set alert_class = 'alert-danger' %}
+            {% set text_color = 'text-danger' %}
+            {% set btn_color = 'btn-danger' %}
+        {% endif %}
+
+        <!-- PART 8: RESULT PAGE WARNING PANEL -->
+        <!-- ===== NEW CODE: Impersonation Warning Display ===== -->
+        {% if results.impersonation_flag == 'Yes' %}
+        <div class="alert alert-danger shadow-sm border-start border-5 border-danger mb-4 text-center">
+            <h4 class="alert-heading fw-bold"><i class="bi bi-person-x-fill"></i> ⚠ Company Impersonation Detected</h4>
+            <p class="mb-0 fw-semibold">This domain appears to impersonate a well-known company. Verify the official website before applying.</p>
+        </div>
+        {% elif results.classification == 'Dangerous' %}
+        <!-- ===== END NEW CODE ===== -->
+        <div class="alert alert-danger shadow-sm border-start border-5 border-danger mb-4 text-center">
+            <h4 class="alert-heading fw-bold"><i class="bi bi-exclamation-octagon-fill"></i> DETECTED FRAUD ALERT</h4>
+            <p class="mb-0 fw-semibold">⚠ WARNING: This job posting contains strong indicators of fraud. Do not share personal or financial information with this employer.</p>
+        </div>
+        {% endif %}
+
+        <div class="row g-4 mb-4">
+            <!-- Left Side: Status & Gauge -->
+            <div class="col-lg-6 mx-auto">
+                <div class="p-4 rounded-4 bg-white border border-light-subtle shadow-sm h-100 text-center">
+                    
+                    <!-- 2. Classification Badge -->
+                    <div class="mb-4">
+                        <span class="badge risk-badge mb-2 {{ 'bg-success' if results.classification == 'Safe' else 'bg-warning text-dark' if results.classification == 'Suspicious' else 'bg-danger' }}">
+                            {{ results.classification | upper }}
+                        </span>
+                    </div>
+
+                    <!-- ===== NEW CODE: Fraud Risk Gauge ===== -->
+                    <div class="gauge-card-box p-3 border shadow-sm mb-3">
+                        <h6 class="fw-bold text-secondary mb-0">Fraud Risk Indicator</h6>
+                        <div id="gauge" class="gauge-container"></div>
+                        <div class="mt-0">
+                            <p class="mb-0">
+                                <span class="text-muted small">Risk Level:</span> 
+                                <span id="risk-level-label" class="fw-bold fs-5 {{ text_color }}">
+                                    {{ results.classification }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <!-- ===== END NEW CODE ===== -->
+
+                    <!-- 4. Trust Score Progress Bar -->
+                    <div class="mt-4 px-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-bold text-secondary small">Trust Score</span>
+                            <span class="fw-bold">{{ results.trust_score }}%</span>
+                        </div>
+                        <div class="progress" style="height: 12px; border-radius: 20px; background-color: #e9ecef;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if results.classification == 'Safe' else 'bg-warning' if results.classification == 'Suspicious' else 'bg-danger' }}" 
+                                 role="progressbar" 
+                                 style="width: {{ results.trust_score }}%;" 
+                                 aria-valuenow="{{ results.trust_score }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Indicators & Explanation -->
+            <div class="col-lg-6">
+                <!-- 5. Risk Indicators -->
+                <div class="mb-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-shield-exclamation me-2"></i>Risk Indicators</h5>
+                    {% if results.risk_indicators %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for risk in results.risk_indicators %}
+                            <span class="badge indicator-tag bg-light text-danger border border-danger-subtle p-2 px-3">
+                                <i class="bi bi-dot"></i> {{ risk }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-success small"><i class="bi bi-check-circle-fill me-1"></i> No major risk factors detected.</p>
+                    {% endif %}
+                </div>
+
+                <!-- 6. AI Explanation -->
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-chat-left-dots me-2"></i>AI Analysis Explanation</h5>
+                    <div class="p-3 rounded-3 bg-light border-start border-4 {{ 'border-success' if results.classification == 'Safe' else 'border-warning' if results.classification == 'Suspicious' else 'border-danger' }}">
+                        <p class="fst-italic text-dark mb-0">"{{ results.ai_explanation }}"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. Investigation Summary (Detailed Metrics) -->
+        <div class="mt-5">
+            <h5 class="fw-bold mb-4">Investigation Summary</h5>
+            <div class="table-responsive">
+                <table class="table table-hover border">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Value / Finding</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="fw-semibold">Company Name</span></td>
+                            <td><span class="fw-bold">{{ results.company_name }}</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">Classification</span></td>
+                            <td><span class="badge {{ 'bg-success' if results.classification == 'Safe' or 'Startup' in results.classification else 'bg-warning text-dark' if results.classification == 'Suspicious' else 'bg-danger' }}">{{ results.classification }}</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">HR Email</span></td>
+                            <td><span class="fw-bold">{{ results.hr_email }}</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">Trust Score</span></td>
+                            <td><span class="fw-bold">{{ results.trust_score }} / 100</span></td>
+                        </tr>
+                        <!-- ===== CORRELATION DETECTION ADDITION ===== -->
+                        <tr>
+                            <td><span class="fw-semibold">Scam Campaign Risk</span></td>
+                            <td>
+                                <span class="badge {{ 'bg-success' if results.campaign_risk == 'Low' else 'bg-warning text-dark' if results.campaign_risk == 'Moderate' else 'bg-danger' }}">
+                                    {{ results.campaign_risk }}
+                                </span>
+                                {% if results.campaign_risk != 'Low' %}
+                                    <div class="small text-muted mt-1">{{ results.campaign_reason }}</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <!-- ===== END CORRELATION DETECTION ADDITION ===== -->
+                        <tr>
+                            <td><span class="fw-semibold">Scam Keywords</span></td>
+                            <td>{{ results.scam_keywords }} detected</td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">Domain Reputation</span></td>
+                            <td>{{ results.domain_age_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">ML Fraud Index</span></td>
+                            <td>{{ (results.ml_prediction * 100) | round(1) }}%</td>
+                        </tr>
+                        <tr>
+                            <td><span class="fw-semibold">Job Clone Risk</span></td>
+                            <td><span class="badge {{ 'bg-success' if results.clone_risk == 'Low' else 'bg-warning text-dark' if results.clone_risk == 'Medium' else 'bg-danger' }}">{{ results.clone_risk }}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== NEW CODE: Job Clone Analysis ===== -->
+        <div class="mt-5">
+            <h5 class="fw-bold mb-4"><i class="bi bi-copy me-2"></i>Job Clone Analysis</h5>
+            <div class="p-4 rounded-4 border shadow-sm {{ 'bg-success-subtle border-success' if results.clone_risk == 'Low' else 'bg-warning-subtle border-warning' if results.clone_risk == 'Medium' else 'bg-danger-subtle border-danger' }}">
+                <div class="d-flex align-items-center">
+                    <div class="me-4 shadow-sm rounded-circle bg-white p-3">
+                        {% if results.clone_risk == 'High' %}
+                            <i class="bi bi-exclamation-octagon-fill text-danger fs-1"></i>
+                        {% elif results.clone_risk == 'Medium' %}
+                            <i class="bi bi-exclamation-triangle-fill text-warning fs-1"></i>
+                        {% else %}
+                            <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1">Job Clone Risk &rarr; {{ results.clone_risk }}</h6>
+                        <p class="mb-0 text-dark">
+                            {% if results.clone_risk == 'High' %}
+                                "The job description appears copied from multiple online sources, which is a common tactic used in job scams."
+                            {% elif results.clone_risk == 'Medium' %}
+                                "The job description appears similar to postings found on other websites. This may indicate copied job listings."
+                            {% else %}
+                                "No significant cloning detected. The job description appears unique or limited to trusted portals."
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ===== END NEW CODE ===== -->
+
+        <div class="mt-5">
+            <h5 class="fw-bold mb-3">Extracted Content Analysis</h5>
+            <textarea class="form-control bg-light border-0" rows="5" readonly style="resize: none;">{{ extracted_text }}</textarea>
+        </div>
+
+        <div class="mt-5 text-center d-flex flex-wrap justify-content-center gap-3">
+            <a href="/" class="btn btn-primary btn-lg px-4 rounded-pill">
+                <i class="bi bi-search me-2"></i>Verify Another
+            </a>
+            <a href="/dashboard" class="btn btn-outline-secondary btn-lg px-4 rounded-pill">
+                <i class="bi bi-speedometer2 me-2"></i>View Dashboard
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ===== NEW CODE: Gauge Initialization ===== -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var g = new JustGage({
+            id: "gauge",
+            value: {{ results.trust_score }},
+            min: 0,
+            max: 100,
+            title: "",
+            label: "Trust Score",
+            labelFontColor: "#6c757d",
+            valueFontColor: "#343a40",
+            valueFontFamily: "Segoe UI",
+            refreshAnimationType: "bounce",
+            refreshAnimationTime: 2000,
+            gaugeWidthScale: 0.6,
+            counter: true,
+            pointer: true,
+            pointerOptions: {
+                toplength: -15,
+                bottomlength: 10,
+                bottomwidth: 12,
+                color: '#8e8e93',
+                stroke: '#ffffff',
+                stroke_width: 3,
+                stroke_linecap: 'round'
+            },
+            customSectors: {
+                percents: true, // Interpreting ranges as percentages of max
+                ranges: [{
+                    color: "#dc3545", // RED
+                    lo: 0,
+                    hi: 30
+                }, {
+                    color: "#ffc107", // YELLOW
+                    lo: 30,
+                    hi: 60
+                }, {
+                    color: "#198754", // GREEN
+                    lo: 60,
+                    hi: 100
+                }]
+            },
+            donut: false
+        });
+    });
+</script>
+<!-- ===== END NEW CODE ===== -->
+
+</body>
+</html>
+

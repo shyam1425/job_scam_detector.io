@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Company History - {{ website }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="card shadow p-4">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Scan History: {{ website }}</h2>
+            <div>
+                <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                <a href="/" class="btn btn-primary">Back to Home</a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Job Title</th>
+                        <th>HR Email</th>
+                        <th>Trust Score</th>
+                        <th>Classification</th>
+                        <th>Domain Age (Days)</th>
+                        <th>Scan Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr>
+                        <td>{{ scan.title }}</td>
+                        <td>{{ scan.email }}</td>
+                        <td>
+                            <span class="fw-bold">{{ scan.trust_score }}</span>
+                        </td>
+                        <td>
+                            <span class="badge {% if scan.classification == 'Safe' %}bg-success{% elif scan.classification == 'Suspicious' %}bg-warning{% else %}bg-danger text-white{% endif %}">
+                                {{ scan.classification }}
+                            </span>
+                        </td>
+                        <td>{{ scan.domain_age_days }}</td>
+                        <td>{{ scan.scan_date.strftime('%Y-%m-%d %H:%M') if scan.scan_date else '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No history found for this company.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
