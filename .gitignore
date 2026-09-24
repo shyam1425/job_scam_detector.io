@@ -1,6 +1,7 @@
-.venv/
-venv/
-__pycache__/
+# Runtime configuration
+.env
 *.log
-*.pkl
-.vscode/
+uploads/
+job_classifier.pkl
+__pycache__/
+.pytest_cache/
