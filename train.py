@@ -1,44 +1,43 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-import pickle
-import joblib
+import argparse
+import os
 import re
 
-# Load dataset
-df = pd.read_csv(r"C:\Users\Lenovo\Downloads\real_or_fake_fake_jobposting_prediction.csv")
-df = df.dropna(subset=['title', 'description', 'fraudulent'])
-df['text'] = df['title'] + ' ' + df['description'].fillna('')
+import joblib
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 
-# Preprocess
+
 def preprocess(text):
-    text = re.sub(r'[^a-zA-Z\s]', '', str(text).lower())
-    return text
+    return re.sub(r"[^a-zA-Z\s]", "", str(text).lower())
 
-df['text'] = df['text'].apply(preprocess)
 
-# Scam keywords (common in fakes)
-scam_keywords = ['urgent', 'immediate hire', 'no experience', 'work from home money', 'apply now fee', 'guaranteed salary', 'too good']
-def count_scam_keywords(text):
-    return sum(1 for kw in scam_keywords if kw in text.lower())
+def main():
+    parser = argparse.ArgumentParser(description="Train the job scam classifier")
+    parser.add_argument("--dataset", default=os.getenv("JOB_DATASET"), help="CSV dataset path")
+    parser.add_argument("--output", default=os.getenv("MODEL_PATH", "job_classifier.pkl"))
+    args = parser.parse_args()
 
-df['scam_count'] = df['text'].apply(count_scam_keywords)
+    if not args.dataset:
+        raise SystemExit("Provide --dataset or set JOB_DATASET")
 
-X = df['text'] + ' ' + df['scam_count'].astype(str)
-y = df['fraudulent'].astype(int)
+    df = pd.read_csv(args.dataset).dropna(subset=["title", "description", "fraudulent"])
+    df["text"] = (df["title"].fillna("") + " " + df["description"].fillna("")).map(preprocess)
+    X_train, X_test, y_train, y_test = train_test_split(
+        df["text"], df["fraudulent"].astype(int), test_size=0.2, random_state=42, stratify=df["fraudulent"]
+    )
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    pipeline = Pipeline([
+        ("tfidf", TfidfVectorizer(max_features=5000)),
+        ("clf", RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced")),
+    ])
+    pipeline.fit(X_train, y_train)
+    print(f"Accuracy: {pipeline.score(X_test, y_test):.2f}")
+    joblib.dump(pipeline, args.output)
+    print(f"Model written to {args.output}")
 
-# Pipeline
-pipeline = Pipeline([
-    ('tfidf', TfidfVectorizer(max_features=5000)),
-    ('clf', RandomForestClassifier(n_estimators=100, random_state=42))
-])
 
-pipeline.fit(X_train, y_train)
-print(f"Accuracy: {pipeline.score(X_test, y_test):.2f}")
-
-joblib.dump(pipeline, 'job_classifier.pkl')
+if __name__ == "__main__":
+    main()
